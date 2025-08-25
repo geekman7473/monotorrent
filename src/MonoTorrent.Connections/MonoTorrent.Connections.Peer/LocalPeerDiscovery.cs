@@ -57,8 +57,8 @@ namespace MonoTorrent.Connections.Peer
         /// </summary>
         public event EventHandler<LocalPeerFoundEventArgs>? PeerFound;
 
-        public TimeSpan AnnounceInternal => TimeSpan.FromMinutes (5);
-        public TimeSpan MinimumAnnounceInternal => TimeSpan.FromMinutes (1);
+        public TimeSpan AnnounceInternal => TimeSpan.FromSeconds (5);
+        public TimeSpan MinimumAnnounceInternal => TimeSpan.FromSeconds (1);
 
         /// <summary>
         /// When we send Announce we should embed the current port used to listen for incoming connections.

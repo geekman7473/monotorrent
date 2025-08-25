@@ -9,6 +9,11 @@
     <Nullable Condition="$(TargetFramework) != 'netstandard2.0' And $(TargetFramework) != 'net472'">enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageOutputPath>C:\Users\geekm\repos\LocalNuGet</PackageOutputPath>
+  </PropertyGroup>
+
+
   <ItemGroup Condition="$(GitInfoVersion) != ''">
     <PackageReference Update="GitInfo" Version="$(GitInfoVersion)" PrivateAssets="all" />
     <Compile Include="$(MSBuildThisFileDirectory)GitInfoHelper.cs" Link="Linked\%(FileName)%(Extension)" />
