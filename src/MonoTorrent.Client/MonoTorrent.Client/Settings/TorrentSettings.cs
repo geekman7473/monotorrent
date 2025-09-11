@@ -104,7 +104,7 @@ namespace MonoTorrent.Client
         /// The time, in seconds, the inactivity manager should wait until it can consider a peer eligible for disconnection.  Peers are disconnected only if they have not provided
         /// any data.  Default is 600.  A value of 0 disables the inactivity manager.
         /// </summary>
-        internal TimeSpan TimeToWaitUntilIdle => TimeSpan.FromMinutes (10);
+        internal TimeSpan TimeToWaitUntilIdle => TimeSpan.FromMinutes (0);
 
         public TorrentSettings ()
         {

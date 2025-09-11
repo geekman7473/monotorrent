@@ -205,6 +205,12 @@ namespace MonoTorrent
             return CreateAsync (fileSource, CancellationToken.None);
         }
 
+        public Task<BEncodedDictionary> CreateAsync (ITorrentFileSource fileSource, IProgress<double>? progress)
+        {
+            return CreateAsync (fileSource, CancellationToken.None, progress);
+        }
+
+
         public Task CreateAsync (ITorrentFileSource fileSource, Stream stream)
         {
             return CreateAsync (fileSource, stream, CancellationToken.None);
@@ -232,7 +238,7 @@ namespace MonoTorrent
             File.WriteAllBytes (savePath, data.Encode ());
         }
 
-        public async Task<BEncodedDictionary> CreateAsync (ITorrentFileSource fileSource, CancellationToken token)
+        public async Task<BEncodedDictionary> CreateAsync (ITorrentFileSource fileSource, CancellationToken token, IProgress<double>? progress = null)
         {
             Check.FileSource (fileSource);
 
@@ -240,13 +246,13 @@ namespace MonoTorrent
             if (mappings.Count == 0)
                 throw new ArgumentException ("The file source must contain one or more files", nameof (fileSource));
 
-            return await CreateAsync (fileSource.TorrentName, fileSource, token);
+            return await CreateAsync (fileSource.TorrentName, fileSource, token, progress);
         }
 
         internal Task<BEncodedDictionary> CreateAsync (string name, ITorrentFileSource fileSource)
             => CreateAsync (name, fileSource, CancellationToken.None);
 
-        internal async Task<BEncodedDictionary> CreateAsync (string name, ITorrentFileSource fileSource, CancellationToken token)
+        internal async Task<BEncodedDictionary> CreateAsync (string name, ITorrentFileSource fileSource, CancellationToken token, IProgress<double>? progress = null)
         {
             var source = fileSource.Files.ToList ();
             foreach (var file in source)
@@ -302,7 +308,7 @@ namespace MonoTorrent
             if (Type.HasV2 ())
                 info["meta version"] = (BEncodedNumber) 2;
 
-            (var sha1Hashes, var merkleLayers, var fileSHA1Hashes, var fileMD5Hashes) = await CalcPiecesHash (manager, token);
+            (var sha1Hashes, var merkleLayers, var fileSHA1Hashes, var fileMD5Hashes) = await CalcPiecesHash (manager, token, progress);
             if (!sha1Hashes.IsEmpty)
                 info["pieces"] = BEncodedString.FromMemory (sha1Hashes);
 
@@ -398,7 +404,7 @@ namespace MonoTorrent
             Dictionary<ITorrentManagerFile, ReadOnlyMemory<byte>> merkleHashes,
             Dictionary<ITorrentManagerFile, ReadOnlyMemory<byte>> fileSHA1Hashes,
             Dictionary<ITorrentManagerFile, ReadOnlyMemory<byte>> fileMD5Hashes)>
-        CalcPiecesHash (ITorrentManagerInfo manager, CancellationToken token)
+        CalcPiecesHash (ITorrentManagerInfo manager, CancellationToken token, IProgress<double>? progress)
         {
             var torrentInfo = manager.TorrentInfo ?? throw new InvalidOperationException ("manager.TorrentInfo should not be null");
             if (torrentInfo.Size == 0)
@@ -481,6 +487,8 @@ namespace MonoTorrent
                         await AppendPerFileHashes (manager, fileMD5, fileMD5Hashes, fileSHA1, fileSHA1Hashes, (long) torrentInfo.PieceLength * piece + i * Constants.BlockSize, buffer).ConfigureAwait (false);
                     }
                 }
+
+                progress?.Report((double)piece / (double)pieceCount);
             }
 
             var merkleLayers = new Dictionary<ITorrentManagerFile, ReadOnlyMemory<byte>> ();
