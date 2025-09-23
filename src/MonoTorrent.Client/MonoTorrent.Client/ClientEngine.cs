@@ -603,6 +603,27 @@ namespace MonoTorrent.Client
             return data;
         }
 
+        // Add a manual peer to all torrents
+        public async void AddManualPeerToAllTorrents (Uri uri)
+        {
+            await MainLoop;
+
+            try {
+                foreach (TorrentManager manager in allTorrents) {
+                    if (manager.HasMetadata && manager.Torrent!.IsPrivate) {
+                        // Do nothing if torrent is private
+                        continue;
+                    }
+
+                    var peer = new PeerInfo (uri);
+                    int peersAdded = manager.AddPeers (new[] { peer }, prioritise: false, fromTracker: false);
+                    manager.RaisePeersFound (new LocalPeersAdded (manager, peersAdded, 1));
+                }
+            } catch {
+
+            }
+        }
+
         async void HandleLocalPeerFound (object? sender, LocalPeerFoundEventArgs args)
         {
             try {
