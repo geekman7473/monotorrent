@@ -128,7 +128,7 @@ namespace MonoTorrent.Connections.Peer
                 lock (PendingAnnounces) {
                     if (PendingAnnounces.Count == 0) {
                         // Enforce a minimum delay before the next announce to avoid killing CPU by iterating network interfaces.
-                        RateLimiterTask = Task.Delay (100);
+                        RateLimiterTask = Task.Delay (50);
                         ProcessingAnnounces = false;
                         break;
                     }
