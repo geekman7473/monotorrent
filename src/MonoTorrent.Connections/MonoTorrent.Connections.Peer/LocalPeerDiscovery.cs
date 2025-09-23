@@ -128,7 +128,7 @@ namespace MonoTorrent.Connections.Peer
                 lock (PendingAnnounces) {
                     if (PendingAnnounces.Count == 0) {
                         // Enforce a minimum delay before the next announce to avoid killing CPU by iterating network interfaces.
-                        RateLimiterTask = Task.Delay (1000);
+                        RateLimiterTask = Task.Delay (100);
                         ProcessingAnnounces = false;
                         break;
                     }
@@ -141,7 +141,8 @@ namespace MonoTorrent.Connections.Peer
                 foreach (var nic in nics) {
                     try {
                         sendingClient.Client.SetSocketOption (SocketOptionLevel.IP, SocketOptionName.MulticastInterface, IPAddress.HostToNetworkOrder (nic.GetIPProperties ().GetIPv4Properties ().Index));
-                        await sendingClient.SendAsync (data, data.Length, MulticastAddressV4).ConfigureAwait (false);
+                        sendingClient.Client.SendTimeout = 50;
+                        sendingClient.Send (data, data.Length, MulticastAddressV4);
                     } catch {
                         // If data can't be sent, just ignore the error
                     }
