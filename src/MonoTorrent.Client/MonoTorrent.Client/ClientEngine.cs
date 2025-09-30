@@ -616,8 +616,8 @@ namespace MonoTorrent.Client
                     }
 
                     var peer = new PeerInfo (uri);
-                    int peersAdded = manager.AddPeers (new[] { peer }, prioritise: false, fromTracker: false);
-                    manager.RaisePeersFound (new LocalPeersAdded (manager, peersAdded, 1));
+                    int peersAdded = manager.AddPeers(new[] { peer }, prioritise: false, fromTracker: false);
+                    manager.RaisePeersFound(new LocalPeersAdded (manager, peersAdded, 1));
                 }
             } catch {
 
