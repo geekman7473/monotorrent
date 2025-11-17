@@ -211,8 +211,10 @@ namespace MonoTorrent.Connections.Peer
 
         protected NetworkInterface[] GetInterfacesCached()
         {
-            if (DateTime.Now - LastInterfaceCheck > TimeSpan.FromMinutes (1))
-                return NetworkInterface.GetAllNetworkInterfaces ();
+            if (DateTime.Now - LastInterfaceCheck > TimeSpan.FromMinutes (1)) {
+                CachedInterfaces = NetworkInterface.GetAllNetworkInterfaces ();
+                LastInterfaceCheck = DateTime.Now;
+            }
 
             return CachedInterfaces;
         }
