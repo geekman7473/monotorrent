@@ -158,6 +158,7 @@ namespace MonoTorrent.Connections.Peer
                 try {
                     if (MostRecentMulticastJoin.AddMinutes (5) < DateTime.Now) {
                         JoinMulticastGroup (ref client);
+                        MostRecentMulticastJoin = DateTime.Now;
                     }
 
                     UdpReceiveResult result = await client.ReceiveAsync ().ConfigureAwait (false);
