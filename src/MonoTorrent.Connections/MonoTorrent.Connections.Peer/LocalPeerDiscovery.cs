@@ -119,8 +119,8 @@ namespace MonoTorrent.Connections.Peer
 
             await RateLimiterTask;
 
-            using var sendingClient = new UdpClient ();
-            var nics = NetworkInterface.GetAllNetworkInterfaces ();
+            var sendingClient = new UdpClient ();
+            var nics = GetInterfacesCached ();
 
             while (true) {
                 InfoHash? infoHash = null;
@@ -128,7 +128,7 @@ namespace MonoTorrent.Connections.Peer
                 lock (PendingAnnounces) {
                     if (PendingAnnounces.Count == 0) {
                         // Enforce a minimum delay before the next announce to avoid killing CPU by iterating network interfaces.
-                        RateLimiterTask = Task.Delay (50);
+                        //RateLimiterTask = Task.Delay (50);
                         ProcessingAnnounces = false;
                         break;
                     }
@@ -140,6 +140,7 @@ namespace MonoTorrent.Connections.Peer
 
                 foreach (var nic in nics) {
                     try {
+                        JoinMulticastGroups (ref sendingClient);
                         sendingClient.Client.SetSocketOption (SocketOptionLevel.IP, SocketOptionName.MulticastInterface, IPAddress.HostToNetworkOrder (nic.GetIPProperties ().GetIPv4Properties ().Index));
                         sendingClient.Client.SendTimeout = 50;
                         sendingClient.Send (data, data.Length, MulticastAddressV4);
@@ -150,18 +151,20 @@ namespace MonoTorrent.Connections.Peer
             }
         }
 
-        async void ReceiveAsync (UdpClient client, CancellationToken token)
+        async void ReceiveAsync (CancellationToken token)
         {
             DateTime MostRecentMulticastJoin = DateTime.MinValue;
 
             while (!token.IsCancellationRequested) {
-                try {
-                    if (MostRecentMulticastJoin.AddMinutes (5) < DateTime.Now) {
-                        JoinMulticastGroup (ref client);
-                        MostRecentMulticastJoin = DateTime.Now;
-                    }
+                var UdpClient = new UdpClient (PreferredLocalEndPoint);
+                LocalEndPoint = (IPEndPoint?) UdpClient.Client.LocalEndPoint;
 
-                    UdpReceiveResult result = await client.ReceiveAsync ().ConfigureAwait (false);
+                token.Register (() => UdpClient.Dispose ());
+
+                try {
+                    JoinMulticastGroups (ref UdpClient);
+
+                    UdpReceiveResult result = await UdpClient.ReceiveAsync ().ConfigureAwait (false);
                     string[] receiveString = Encoding.ASCII.GetString (result.Buffer)
                         .Split (new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -198,19 +201,27 @@ namespace MonoTorrent.Connections.Peer
         {
             base.Start (token);
 
-            var UdpClient = new UdpClient (PreferredLocalEndPoint);
-            LocalEndPoint = (IPEndPoint?) UdpClient.Client.LocalEndPoint;
-
-            token.Register (() => UdpClient.Dispose ());
-
-            ReceiveAsync (UdpClient, token);
+            ReceiveAsync (token);
         }
 
-        protected void JoinMulticastGroup (ref UdpClient client)
+        // Returns all active IP interfaces, but if this call was less than 1 minute after
+        // the last call, return the cached value.
+        private DateTime LastInterfaceCheck = DateTime.MinValue;
+        private NetworkInterface[] CachedInterfaces = Array.Empty<NetworkInterface> ();
+
+        protected NetworkInterface[] GetInterfacesCached()
+        {
+            if (DateTime.Now - LastInterfaceCheck > TimeSpan.FromMinutes (1))
+                return NetworkInterface.GetAllNetworkInterfaces ();
+
+            return CachedInterfaces;
+        }
+
+        protected void JoinMulticastGroups (ref UdpClient client)
         {
             // enumerating all active IP interfaces and joining their multicast group, so we can reliably listen
             // on systems with multiple NIC
-            var nics = NetworkInterface.GetAllNetworkInterfaces ();
+            var nics = GetInterfacesCached ();
 
             foreach (var nic in nics) {
 
@@ -228,7 +239,12 @@ namespace MonoTorrent.Connections.Peer
                 if (ip is null)
                     continue;
 
-                client.JoinMulticastGroup (MulticastAddressV4.Address, ip);
+                try {
+                    client.JoinMulticastGroup (MulticastAddressV4.Address, ip);
+                }
+                catch {
+                    // If we can't join the multicast group, just ignore the error
+                }
             }
         }
 
