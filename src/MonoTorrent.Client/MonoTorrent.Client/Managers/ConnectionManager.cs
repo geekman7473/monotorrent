@@ -265,6 +265,7 @@ namespace MonoTorrent.Client
                     logger.Info (connection, "Received handshake but protocol was unsupported");
             } catch {
                 logger.Info (connection, "Could not receive a handshake from the peer");
+                Interlocked.Decrement (ref openConnections);
                 return ConnectionFailureReason.EncryptionNegiotiationFailed;
             }
 
@@ -277,14 +278,20 @@ namespace MonoTorrent.Client
                 id = CreatePeerIdFromHandshake (handshake, peer, connection, manager, encryptor: encryptor, decryptor: decryptor);
                 logger.InfoFormatted (id.Connection, "Received handshake message with peer id '{0}'", handshake.PeerId);
 
-                if (LocalPeerId.Equals (handshake.PeerId))
+                if (LocalPeerId.Equals (handshake.PeerId)) {
+                    Interlocked.Decrement (ref openConnections);
                     return ConnectionFailureReason.ConnectedToSelf;
+                }
 
                 // CreatePeerIdFromHandshake files in the peerid, which is important context for whether or not
                 // the peer connection should be closed.
-                if (ShouldBanPeer (peer.Info, AttemptConnectionStage.HandshakeComplete))
+                if (ShouldBanPeer (peer.Info, AttemptConnectionStage.HandshakeComplete)) {
+                    Interlocked.Decrement (ref openConnections);
                     return ConnectionFailureReason.Banned;
+                }
+                
             } catch {
+                Interlocked.Decrement (ref openConnections);
                 return ConnectionFailureReason.HandshakeFailed;
             }
 
@@ -307,6 +314,8 @@ namespace MonoTorrent.Client
             } catch {
                 manager.RaiseConnectionAttemptFailed (new ConnectionAttemptFailedEventArgs (id.Peer.Info, ConnectionFailureReason.Unknown, manager));
                 CleanupSocket (manager, id);
+
+                Interlocked.Decrement (ref openConnections);
                 return ConnectionFailureReason.Unknown;
             }
         }
