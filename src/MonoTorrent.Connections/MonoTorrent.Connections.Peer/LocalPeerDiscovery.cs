@@ -152,8 +152,14 @@ namespace MonoTorrent.Connections.Peer
 
         async void ReceiveAsync (UdpClient client, CancellationToken token)
         {
+            DateTime MostRecentMulticastJoin = DateTime.MinValue;
+
             while (!token.IsCancellationRequested) {
                 try {
+                    if (MostRecentMulticastJoin.AddMinutes (5) < DateTime.Now) {
+                        JoinMulticastGroup (ref client);
+                    }
+
                     UdpReceiveResult result = await client.ReceiveAsync ().ConfigureAwait (false);
                     string[] receiveString = Encoding.ASCII.GetString (result.Buffer)
                         .Split (new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
@@ -196,6 +202,11 @@ namespace MonoTorrent.Connections.Peer
 
             token.Register (() => UdpClient.Dispose ());
 
+            ReceiveAsync (UdpClient, token);
+        }
+
+        protected void JoinMulticastGroup (ref UdpClient client)
+        {
             // enumerating all active IP interfaces and joining their multicast group, so we can reliably listen
             // on systems with multiple NIC
             var nics = NetworkInterface.GetAllNetworkInterfaces ();
@@ -216,10 +227,8 @@ namespace MonoTorrent.Connections.Peer
                 if (ip is null)
                     continue;
 
-                UdpClient.JoinMulticastGroup (MulticastAddressV4.Address, ip);
+                client.JoinMulticastGroup (MulticastAddressV4.Address, ip);
             }
-
-            ReceiveAsync (UdpClient, token);
         }
 
         static ThreadSwitcher SwitchToThreadpool ()
